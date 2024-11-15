@@ -93,6 +93,8 @@
 #define FirstLine       0x80        // Cursor at the beginning of the first line
 #define SecondLine      0xC0        // Cursor at the beginning of the second line
 #define TwoLines57Mat   0x38        // Two lines, 5x7 matrix
+char dataT[10];
+char dataL[10];
 
 //define inputs
 #define X_axis_1 RA1  // Pin RA1 para la señal digital del eje X arriba del comparador
@@ -100,57 +102,31 @@
 #define Y_axis_1 RA3 // Pin RA3 para la señal digital del eje Y arriba del comparador
 #define Y_axis_0 RA4  // Pin RA4 para la señal digital del eje Y abajo del comparador
 
-//define outputs
-#define motor1 RB0
-#define motor2 RB2
-#define motor3 RB3
-#define motor4 RB4
+// Define outputs (L298N control pins)
+// Primer L298N (Motores lado derecho)
+#define IN1 RB0  // Controla la dirección del motor derecho 1
+#define IN2 RB1  // Controla la dirección del motor derecho 1
+#define ENA RB2  // PWM para controlar la velocidad del motor derecho
 
+// Segundo L298N (Motores lado izquierdo)
+#define IN3 RB3  // Controla la dirección del motor izquierdo 1
+#define IN4 RB4  // Controla la dirección del motor izquierdo 1
+#define ENB RB5  // PWM para controlar la velocidad del motor izquierdo
 
-void main(void) {
-    // Configuración de puertos
-    TRISA1 = 1; // Configurar RA1 como entrada (eje X)
-    TRISA2 = 1; // Configurar RA2 como entrada (eje Y)
-    TRISA3 = 1; // Configurar RA3 como entrada (eje Y)
-    TRISA4 = 1; // Configurar RA4 como entrada (eje Y)
-    TRISB0 = 0; // Configurar RB0 como salida (motor)
-    TRISB1 = 0; // Configurar RB1 como salida (motor)
-    TRISB2 = 0; // Configurar RB1 como salida (motor)
-    TRISB3 = 0; // Configurar RB1 como salida (motor)
-
-
-    // Bucle principal
-    while (1) {
-        // Leer el estado del joystick eje X
-        if (X_axis_1 == 1) {
-            // Arriba
-        } 
-        // Leer el estado del joystick eje Y
-        if (JOYSTICK_Y == 0 && JOYSTICK_Y == 0) {
-            // Abajo
-        } 
-        if (JOYSTICK_Y == 0 && JOYSTICK_Y == 1) {
-            // Derecha
-        } 
-        if (JOYSTICK_Y == 1 && JOYSTICK_Y == 0) {
-            // Izquierda
-        } 
-        else {
-        
-        }
-    }
-}
-
-char dataT[10];
-char dataL[10];
 
 // Initialize ports
 void Init_Ports() {
-    TRISC = 0; // Clear bits RC0, RC1, RC2 to set as output
-    TRISB = 1;      // All PORTB is INput
-    TRISD =0;
-    TRISA= 1;// Set RC4, RC5, RC6 as inputs (bits 4, 5, and 6 in TRISC)
-    LATB = 0x00;    // Asegurarse de que las salidas en puerto A estén apagadas
+    // Configuración de puertos
+    TRISA1 = 1; // Eje X derecha como entrada
+    TRISA2 = 1; // Eje X izquierda como entrada
+    TRISA3 = 1; // Eje Y arriba como entrada
+    TRISA4 = 1; // Eje Y abajo como entrada
+    TRISB0 = 0; // IN1 como salida
+    TRISB1 = 0; // IN2 como salida
+    TRISB2 = 0; // ENA como salida (PWM)
+    TRISB3 = 0; // IN3 como salida
+    TRISB4 = 0; // IN4 como salida
+    TRISB5 = 0; // ENB como salida (PWM)
 }
 
 void Lcd_CmdWrite(unsigned char c) {
@@ -205,7 +181,7 @@ int Position_Lcd_Cursor(int LineNum, int Offset) {
 void Init_Var() {
     PORTA = 1;
     PORTD = 0;
-    PORTB =1;
+    PORTB =0;
     PORTC =0;
 }
 
@@ -222,6 +198,83 @@ void Config_ADC() {
     ADCS0 = 0;
     ADON = 1;  // Enable ADC
     __delay_ms(100);
+}
+
+void main(void) {
+    Init_Ports();
+    Init_LCD();
+    Config_ADC();
+    Init_Var();
+
+      // Bucle principal
+    while (1) {
+        // Leer el estado del joystick eje X (derecha)
+        if (X_axis_1 == 1) {
+            // Girar a la derecha
+            IN1 = 1; IN2 = 0;  // Motor derecho hacia adelante
+            IN3 = 0; IN4 = 1;  // Motor izquierdo hacia atrás
+            ENA = 1;           // Habilitar motor derecho (puede ser PWM para velocidad)
+            ENB = 1;           // Habilitar motor izquierdo (puede ser PWM para velocidad)
+
+            Lcd_CmdWrite(ClrScreen);
+            Message_LCD((unsigned char *)"Go right");
+            __delay_ms(1000);
+            Lcd_CmdWrite(ClrScreen);
+        }
+        
+        // Leer el estado del joystick eje X (izquierda)
+        else if (X_axis_0 == 1) {
+            // Girar a la izquierda
+            IN1 = 0; IN2 = 1;  // Motor derecho hacia atrás
+            IN3 = 1; IN4 = 0;  // Motor izquierdo hacia adelante
+            ENA = 1;           // Habilitar motor derecho
+            ENB = 1;           // Habilitar motor izquierdo
+
+            Lcd_CmdWrite(ClrScreen);
+            Message_LCD((unsigned char *)"Go left");
+            __delay_ms(1000);
+            Lcd_CmdWrite(ClrScreen);
+        }
+
+        // Leer el estado del joystick eje Y (arriba)
+        else if (Y_axis_1 == 1) {
+            // Avanzar hacia adelante
+            IN1 = 1; IN2 = 0;  // Motor derecho hacia adelante
+            IN3 = 1; IN4 = 0;  // Motor izquierdo hacia adelante
+            ENA = 1;           // Habilitar motor derecho
+            ENB = 1;           // Habilitar motor izquierdo
+
+            Lcd_CmdWrite(ClrScreen);
+            Message_LCD((unsigned char *)"Go up");
+            __delay_ms(1000);
+            Lcd_CmdWrite(ClrScreen);
+        }
+
+        // Leer el estado del joystick eje Y (abajo)
+        else if (Y_axis_0 == 1) {
+            // Retroceder
+            IN1 = 0; IN2 = 1;  // Motor derecho hacia atrás
+            IN3 = 0; IN4 = 1;  // Motor izquierdo hacia atrás
+            ENA = 1;           // Habilitar motor derecho
+            ENB = 1;           // Habilitar motor izquierdo
+
+            Lcd_CmdWrite(ClrScreen);
+            Message_LCD((unsigned char *)"Go down");
+            __delay_ms(1000);
+            Lcd_CmdWrite(ClrScreen);
+        }
+
+        // Detener los motores si no hay movimiento
+        else {
+            ENA = 0; // Deshabilitar motor derecho
+            ENB = 0; // Deshabilitar motor izquierdo
+
+            Lcd_CmdWrite(ClrScreen);
+            Message_LCD((unsigned char *)"Stop");
+            __delay_ms(1000);
+            Lcd_CmdWrite(ClrScreen);
+        }
+    }
 }
 
 
